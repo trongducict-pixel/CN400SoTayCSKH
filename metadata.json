@@ -1,0 +1,10 @@
+{
+  "name": "Sổ tay Chăm sóc khách hàng - Quản lý và chăm sóc khách hàng chủ động - CN VietinBank Ninh Bình",
+  "description": "Sổ tay điện tử dành cho cán bộ Quan hệ khách hàng (QHKH) CN VietinBank Ninh Bình - quản lý khách hàng, ghi nhận cuộc gặp tức thì, định vị GPS, theo dõi công việc và chăm sóc tự động qua Google Sheets & Apps Script.",
+  "requestFramePermissions": [
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
