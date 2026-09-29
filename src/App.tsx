@@ -482,6 +482,41 @@ export default function App() {
           CacheEngine.set('CARE_HISTORIES', next);
           return next;
         });
+
+        // Đồng thời cập nhật vào meetings để Timeline và danh sách hoạt động hiển thị đầy đủ
+        const newMeetingFromCare: MeetingHistory = (res.data?.meeting as MeetingHistory) || {
+          idLichSu: 'LSG_' + Date.now().toString().slice(-6),
+          idKh: payload.careData.idKh || '',
+          thoiGianGap: payload.careData.thoiGian || new Date().toISOString(),
+          hinhThucGap: payload.careData.hinhThuc === 'Gọi điện' ? 'Điện thoại' : 'Chăm sóc',
+          latitude: null,
+          longitude: null,
+          googleMapUrl: '',
+          noiDungTraoDoi: payload.careData.noiDung || '',
+          nhuCauKhachHang: payload.careData.ghiChu || '',
+          tinhTrangSauGap: 'Đã gặp khách hàng',
+          congViecTiepTheo: payload.nextTask?.noiDung || '',
+          ngayHenLienHe: payload.nextTask?.ngayHan || '',
+          ghiChu: payload.careData.ghiChu || '',
+          canBoThucHien: payload.careData.canBo || currentUser?.hoTen || 'QHKH',
+          thoiGianCapNhat: new Date().toISOString()
+        };
+        setMeetings(prev => {
+          const next = [newMeetingFromCare, ...prev];
+          CacheEngine.set('MEETINGS', next);
+          return next;
+        });
+
+        if (payload.careData.idKh) {
+          setCustomers(prev => {
+            const next = prev.map(c => c.idKh === payload.careData?.idKh ? {
+              ...c,
+              ngayCapNhat: new Date().toISOString().split('T')[0]
+            } : c);
+            CacheEngine.set('CUSTOMERS', next);
+            return next;
+          });
+        }
       }
 
       if (payload.nextTask) {

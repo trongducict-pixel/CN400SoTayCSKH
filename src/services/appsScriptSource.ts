@@ -211,6 +211,10 @@ function handleRequest(e, method) {
         output = syncAllToSheets(params.payload || params);
         break;
 
+      case 'recordQuickActivity':
+        output = recordQuickActivity(params.activity);
+        break;
+
       default:
         output.success = false;
         output.message = 'Hành động (action) không hợp lệ: ' + action;
@@ -1270,6 +1274,36 @@ function getEmailLogs(statusFilter) {
   }
 
   return { success: true, data: rawLogs };
+}
+
+function recordQuickActivity(activity) {
+  if (!activity) {
+    return { success: false, message: 'Dữ liệu hoạt động không hợp lệ (activity is missing).' };
+  }
+
+  // Hoạt động chăm sóc (CARE: Gọi điện, Tin nhắn, Tặng quà)
+  if (activity.activityType === 'CARE') {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var careSheet = ss ? ss.getSheetByName('LICH_SU_CHAM_SOC') : null;
+    if (careSheet && typeof addCareHistory === 'function') {
+      return addCareHistory(activity.careData || {}, activity.nextTask);
+    }
+    // Ghi nhận tương tác chăm sóc vào LICH_SU_GAP
+    var careData = activity.careData || {};
+    var meetingFromCare = {
+      idKh: careData.idKh || '',
+      thoiGianGap: careData.thoiGian || Utilities.formatDate(new Date(), 'GMT+7', 'yyyy-MM-dd HH:mm:ss'),
+      hinhThucGap: careData.hinhThuc || 'Gọi điện',
+      noiDungTraoDoi: careData.noiDung || (careData.suKien ? ('Chăm sóc: ' + careData.suKien) : 'Chăm sóc khách hàng'),
+      nhuCauKhachHang: careData.ghiChu || '',
+      tinhTrangSauGap: careData.ketQua || 'Đã hoàn thành chăm sóc',
+      canBoThucHien: careData.canBo || ''
+    };
+    return recordMeeting(meetingFromCare, activity.nextTask);
+  } else {
+    // Hoạt động Cuộc gặp (MEETING: Gặp trực tiếp, Họp trực tuyến...)
+    return recordMeeting(activity.meetingData || {}, activity.nextTask);
+  }
 }
 
 function getInitialData(userEmail, userRole) {

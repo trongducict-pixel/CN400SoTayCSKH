@@ -1597,11 +1597,35 @@ function getDemandCategories() {
 }
 
 function recordQuickActivity(activity) {
-  // activity có thể là MEETING hoặc CARE
+  if (!activity) {
+    return { success: false, message: 'Dữ liệu hoạt động không hợp lệ (activity is missing).' };
+  }
+
+  // Hoạt động chăm sóc (CARE: Gọi điện, Tin nhắn, Tặng quà)
   if (activity.activityType === 'CARE') {
-    return addCareHistory(activity.careData, activity.nextTask);
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var careSheet = ss ? ss.getSheetByName(SHEET_NAMES.LICH_SU_CHAM_SOC) : null;
+    
+    // Nếu có sẵn bảng LICH_SU_CHAM_SOC, lưu trực tiếp vào bảng đó
+    if (careSheet && typeof addCareHistory === 'function') {
+      return addCareHistory(activity.careData || {}, activity.nextTask);
+    }
+
+    // Nếu chỉ có 7 bảng chuẩn (chưa có LICH_SU_CHAM_SOC), quy đổi thành cuộc gặp/tương tác chuẩn vào LICH_SU_GAP
+    var careData = activity.careData || {};
+    var meetingFromCare = {
+      idKh: careData.idKh || '',
+      thoiGianGap: careData.thoiGian || Utilities.formatDate(new Date(), 'GMT+7', 'yyyy-MM-dd HH:mm:ss'),
+      hinhThucGap: careData.hinhThuc || 'Gọi điện',
+      noiDungTraoDoi: careData.noiDung || (careData.suKien ? ('Chăm sóc: ' + careData.suKien) : 'Chăm sóc khách hàng'),
+      nhuCauKhachHang: careData.ghiChu || '',
+      tinhTrangSauGap: careData.ketQua || 'Đã hoàn thành chăm sóc',
+      canBoThucHien: careData.canBo || ''
+    };
+    return recordMeeting(meetingFromCare, activity.nextTask);
   } else {
-    return recordMeeting(activity.meetingData, activity.nextTask);
+    // Hoạt động Cuộc gặp (MEETING: Gặp trực tiếp, Họp trực tuyến...)
+    return recordMeeting(activity.meetingData || {}, activity.nextTask);
   }
 }
 

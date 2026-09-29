@@ -274,6 +274,7 @@ export class ApiClient {
     careData?: Partial<CareHistory>;
     nextTask?: Partial<Task>;
   }): Promise<ApiResponse<any>> {
+    // 1. Chuẩn hóa ID khách hàng nếu là định dạng số điện thoại
     if (activity.activityType === 'CARE' && activity.careData) {
       const isPhoneId = activity.careData.idKh && !activity.careData.idKh.startsWith('KH_') && !isNaN(Number(String(activity.careData.idKh).replace(/\D/g, '')));
       activity.careData.idKh = isPhoneId ? (normalizePhone(activity.careData.idKh!) || activity.careData.idKh) : activity.careData.idKh;
@@ -281,7 +282,60 @@ export class ApiClient {
       const isPhoneId = activity.meetingData.idKh && !activity.meetingData.idKh.startsWith('KH_') && !isNaN(Number(String(activity.meetingData.idKh).replace(/\D/g, '')));
       activity.meetingData.idKh = isPhoneId ? (normalizePhone(activity.meetingData.idKh!) || activity.meetingData.idKh) : activity.meetingData.idKh;
     }
-    return this.apiRequest<any>('recordQuickActivity', { activity });
+
+    // 2. Chuyển đổi về action 'recordMeeting' cốt lõi đã có sẵn trên 100% các phiên bản Apps Script Web App
+    if (activity.activityType === 'MEETING' && activity.meetingData) {
+      return this.apiRequest<any>('recordMeeting', {
+        meeting: activity.meetingData,
+        newTask: activity.nextTask
+      });
+    }
+
+    // 3. Xử lý hoạt động chăm sóc (Gọi điện, Tin nhắn, Tặng quà)
+    if (activity.activityType === 'CARE' && activity.careData) {
+      const nowStr = new Date().toISOString().replace('T', ' ').slice(0, 19);
+      const careMeeting: Partial<MeetingHistory> = {
+        idKh: activity.careData.idKh,
+        thoiGianGap: activity.careData.thoiGian || nowStr,
+        hinhThucGap: activity.careData.hinhThuc === 'Gọi điện' ? 'Điện thoại' : 'Chăm sóc',
+        noiDungTraoDoi: activity.careData.noiDung || (activity.careData.suKien ? `Chăm sóc: ${activity.careData.suKien}` : 'Chăm sóc khách hàng'),
+        nhuCauKhachHang: activity.careData.ghiChu || '',
+        tinhTrangSauGap: 'Đã gặp khách hàng',
+        canBoThucHien: activity.careData.canBo || 'QHKH',
+        thoiGianCapNhat: nowStr
+      };
+
+      const res = await this.apiRequest<any>('recordMeeting', {
+        meeting: careMeeting,
+        newTask: activity.nextTask
+      });
+
+      if (res.success) {
+        return {
+          ...res,
+          data: {
+            ...res.data,
+            care: {
+              idChamSoc: res.data?.meeting?.idLichSu || ('CS_' + Date.now().toString().slice(-6)),
+              idKh: activity.careData.idKh || '',
+              thoiGian: activity.careData.thoiGian || nowStr,
+              hinhThuc: activity.careData.hinhThuc || 'Gọi điện',
+              suKien: activity.careData.suKien || 'Chăm sóc thường xuyên',
+              noiDung: activity.careData.noiDung || '',
+              ketQua: activity.careData.ketQua || 'Khách hàng hài lòng',
+              canBo: activity.careData.canBo || 'QHKH',
+              ghiChu: activity.careData.ghiChu || ''
+            }
+          }
+        };
+      }
+      return res;
+    }
+
+    return this.apiRequest<any>('recordMeeting', {
+      meeting: activity.meetingData || {},
+      newTask: activity.nextTask
+    });
   }
 
   /**
